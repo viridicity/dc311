@@ -1,3 +1,6 @@
+import { quickPickDisplayLabel } from '../../lib/quickPickLabels';
+import { QUICK_PICK_CHIP_CLASS } from '../shared/surfaceStyles';
+
 interface EstimateReplayCardProps {
   title: string;
   promptLine?: string | null;
@@ -27,9 +30,9 @@ export default function EstimateReplayCard({
                 key={type}
                 type="button"
                 onClick={() => onSelectType(type)}
-                className="text-caption px-2.5 py-1 min-h-[32px] rounded-full border border-border bg-surface-muted hover:bg-blue-50 hover:border-blue-200 hover:text-blue-900 text-gray-800 transition-colors"
+                className={QUICK_PICK_CHIP_CLASS}
               >
-                {type}
+                {quickPickDisplayLabel(type)}
               </button>
             ))}
           </div>

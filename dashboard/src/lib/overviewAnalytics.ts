@@ -113,7 +113,7 @@ export interface InvestigativeDeepDive {
   narrative: string;
 }
 
-/** Urbanist categories highlighted on the overview front page. */
+/** Urbanist categories highlighted on the methodologies front page. */
 export const URBANIST_PRIORITY_CATEGORIES = [
   'Pedestrian Infrastructure',
   'Cycling & Micromobility',
@@ -150,7 +150,7 @@ export function slaTone(pctMetSla: number): SlaTone {
   return 'danger';
 }
 
-/** Headline verdict for the overview hero; bands at 99%, 95%, and 80%. */
+/** Headline verdict for citywide SLA summary; bands at 99%, 95%, and 80%. */
 export function slaVerdictLabel(pctMetSla: number): { label: string; tone: SlaTone } {
   if (pctMetSla >= 99) return { label: 'Meeting expectations', tone: 'success' };
   if (pctMetSla >= 95) return { label: 'Slipping below expectations', tone: 'warning' };
@@ -383,7 +383,7 @@ export function computeCategoryMonthlySlaFromRollups(
   }));
 }
 
-/** Full-year headline KPIs for the overview hero. */
+/** Full-year headline KPIs for Home and Methodologies. */
 export function computeOverviewHeadline(rollups: RollupFile[]): OverviewHeadline {
   let total = 0;
   let resolved = 0;
@@ -861,7 +861,7 @@ export function buildCategoryArticle(
 
   paragraphs.push([
     { kind: 'text', text: 'The ' },
-    { kind: 'link', text: 'Performance tab', tab: 'sla' },
+    { kind: 'link', text: 'Reliability tab', tab: 'sla' },
     { kind: 'text', text: ' breaks each category into service types and pairs resolution time with compliance. ' },
     { kind: 'text', text: 'The ' },
     { kind: 'link', text: 'Explore tab', tab: 'explorer' },

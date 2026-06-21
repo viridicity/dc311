@@ -1,6 +1,7 @@
 import { MonthlySlaSummary, slaVerdictLabel } from '../../lib/overviewAnalytics';
 import { colors } from '../../lib/theme';
 import MonthlySlaTimeline from './MonthlySlaTimeline';
+import { useEffect, useState } from 'react';
 
 interface SlaComplianceSummaryProps {
   pctMetSla: number;
@@ -9,6 +10,8 @@ interface SlaComplianceSummaryProps {
   months: MonthlySlaSummary[];
   categoriesBelow95Count: number;
   totalCategoryCount: number;
+  onReliabilityClick?: () => void;
+  onMethodologiesClick?: () => void;
 }
 
 const toneColor = {
@@ -31,10 +34,34 @@ export default function SlaComplianceSummary({
   months,
   categoriesBelow95Count,
   totalCategoryCount,
+  onReliabilityClick,
+  onMethodologiesClick,
 }: SlaComplianceSummaryProps) {
   const verdict = slaVerdictLabel(pctMetSla);
   const color = toneColor[verdict.tone];
   const detail = verdict.tone === 'danger' ? errorBudgetDetail(failures, errorBudgetAt99) : null;
+  const [animatedPct, setAnimatedPct] = useState(0);
+
+  useEffect(() => {
+    const duration = 1500;
+    const startValue = 0;
+    const endValue = pctMetSla;
+
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      setAnimatedPct(startValue + (endValue - startValue) * easeOutQuart);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [pctMetSla]);
 
   return (
     <section className="article-section article-prose">
@@ -42,18 +69,33 @@ export default function SlaComplianceSummary({
       <p className="article-dek">
         Did DC meet its promised 311 deadlines over the last twelve months?
         {categoriesBelow95Count > 0 && (
-          <> {categoriesBelow95Count} of {totalCategoryCount} categories fall below 95%.</>
+          <>
+            {' '}
+            {categoriesBelow95Count} of {totalCategoryCount} categories fall below 95%.
+            {onReliabilityClick && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={onReliabilityClick}
+                  className="article-link"
+                >
+                  See full reliability by category and ward
+                </button>
+              </>
+            )}
+          </>
         )}
       </p>
 
       <div className="font-mono">
         <div className="mb-3">
           <p
-            className="text-xl sm:text-2xl font-bold leading-snug mb-0"
+            className="text-xl sm:text-2xl font-bold leading-snug mb-0 font-mono"
             style={{ color }}
           >
             <span className="text-7xl sm:text-8xl tabular-nums tracking-tight leading-none">
-              {pctMetSla}%
+              {animatedPct.toFixed(1)}%
             </span>
             {' '}met SLA. {verdict.label}.
           </p>
@@ -62,7 +104,7 @@ export default function SlaComplianceSummary({
           )}
         </div>
 
-        <MonthlySlaTimeline months={months} />
+        <MonthlySlaTimeline months={months} onMethodologiesClick={onMethodologiesClick} />
       </div>
     </section>
   );

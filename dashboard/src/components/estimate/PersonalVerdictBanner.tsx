@@ -9,7 +9,6 @@ interface PersonalVerdictBannerProps {
   neutralBox?: boolean;
   children?: ReactNode;
   onShare?: () => void;
-  saveLinkNudge?: ReactNode;
 }
 
 const toneClasses: Record<ConfidenceTone, string> = {
@@ -34,7 +33,6 @@ export default function PersonalVerdictBanner({
   neutralBox = false,
   children,
   onShare,
-  saveLinkNudge,
 }: PersonalVerdictBannerProps) {
   return (
     <div>
@@ -73,9 +71,6 @@ export default function PersonalVerdictBanner({
         </div>
       )}
       </div>
-      {saveLinkNudge && (
-        <div className="mt-2">{saveLinkNudge}</div>
-      )}
     </div>
   );
 }

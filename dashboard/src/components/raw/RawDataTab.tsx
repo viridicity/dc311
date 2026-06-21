@@ -7,6 +7,7 @@ import { ProcessedRequest } from '../../lib/dataProcessing';
 import { useIsMobile } from '../../hooks/useBreakpoint';
 import ExplorerFilterBar from '../shared/filters/ExplorerFilterBar';
 import ScrollHint from '../shared/ScrollHint';
+import RawDataTabSkeleton from './RawDataTabSkeleton';
 
 const ROW_HEIGHT = 36;
 const CARD_HEIGHT = 96;
@@ -95,7 +96,7 @@ export default function RawDataTab() {
   const visibleRows = filtered.slice(startIdx, endIdx);
 
   if (!processed || processed.length === 0) {
-    return <div className="p-4">No data available</div>;
+    return <RawDataTabSkeleton />;
   }
 
   return (

@@ -34,10 +34,24 @@ import {
 import {
   buildReplayPrompt,
 } from '../../lib/estimateReplay';
+import { ESTIMATE_HANDOFF_SCROLL_KEY } from '../../lib/estimateHandoff';
+import {
+  addRecentLookup,
+  backfillRecentTicketServiceTypes,
+  clearRecentLookups,
+  formatRecentLookupLabel,
+  getDefaultWard,
+  isSubscribedTicketEntry,
+  RecentLookup,
+  removeRecentLookup,
+  SubscribedTicket,
+} from '../../lib/homePreferences';
+import { useRecentLookups } from '../../hooks/useLocalPrefs';
 import EstimateInput from './EstimateInput';
 import EstimateEmptyResultCard from './EstimateEmptyResultCard';
 import EstimateReplayCard from './EstimateReplayCard';
 import EstimateResultCard from './EstimateResultCard';
+import EstimateTabSkeleton from './EstimateTabSkeleton';
 
 function syncEstimateUrl(
   ticket: TicketInfo | null,
@@ -63,7 +77,7 @@ function syncEstimateUrl(
 }
 
 export default function EstimateTab() {
-  const { data, isLoading, datePreset, setDatePreset } = useDashboard();
+  const { data, manifest, isLoading, datePreset, setDatePreset } = useDashboard();
   const [serviceType, setServiceType] = useState<string | null>(null);
   const [ward, setWard] = useState('');
   const [ticket, setTicket] = useState<TicketInfo | null>(null);
@@ -72,9 +86,10 @@ export default function EstimateTab() {
   const [failedServiceType, setFailedServiceType] = useState<string | null>(null);
   const [urlReady, setUrlReady] = useState(false);
   const [replayToken, setReplayToken] = useState(0);
+  const recentLookups = useRecentLookups();
   const inputSectionRef = useRef<HTMLDivElement>(null);
+  const resultSectionRef = useRef<HTMLDivElement>(null);
 
-  const manifest = data?.manifest;
   const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
   const ticketIndex = useMemo(() => buildTicketIndex(rows), [rows]);
   const estimateUrlHistoryMode = useRef<'replace' | 'push'>('replace');
@@ -115,7 +130,7 @@ export default function EstimateTab() {
     if (!hasEstimateParams) {
       setServiceType(null);
       setTicket(null);
-      setWard('');
+      setWard(getDefaultWard() ?? '');
       setWaitDays(null);
       setFailedTicketId(null);
       setFailedServiceType(null);
@@ -300,6 +315,136 @@ export default function EstimateTab() {
     return () => { document.title = '311: DC\u2019s To-Do List'; };
   }, [effectiveServiceType, effectiveWard]);
 
+  const handleShortcutResume = useCallback((lookup: RecentLookup) => {
+    if (!manifest) return;
+    estimateUrlHistoryMode.current = 'push';
+    setFailedTicketId(null);
+    setFailedServiceType(null);
+
+    if (lookup.ticket) {
+      const normalized = normalizeTicketId(lookup.ticket);
+      const match = ticketIndex.get(normalized) ?? ticketIndex.get(lookup.ticket);
+      if (match) {
+        const found = ticketFromRequest(match);
+        setTicket(found);
+        setServiceType(found.serviceType);
+        const wardFromLookup = lookup.ward && manifest.dictionaries.wards.includes(lookup.ward)
+          ? lookup.ward
+          : found.ward;
+        setWard(wardFromLookup);
+        setWaitDays(null);
+        trackEstimateLookup(true);
+      } else {
+        setFailedTicketId(lookup.ticket);
+        setTicket(null);
+        setServiceType(null);
+        setWard('');
+        setWaitDays(null);
+        trackEstimateLookup(false);
+      }
+      return;
+    }
+
+    if (lookup.serviceType && manifest.dictionaries.serviceTypes.includes(lookup.serviceType)) {
+      setTicket(null);
+      setServiceType(lookup.serviceType);
+      setWard(lookup.ward && manifest.dictionaries.wards.includes(lookup.ward) ? lookup.ward : '');
+      setWaitDays(lookup.waitDays ?? null);
+      trackEstimateSearch('quick_pick', Boolean(lookup.ward));
+    }
+  }, [manifest, ticketIndex]);
+
+  const handleShortcutQuickPick = useCallback((serviceType: string) => {
+    estimateUrlHistoryMode.current = 'push';
+    setFailedTicketId(null);
+    setFailedServiceType(null);
+    setTicket(null);
+    setServiceType(serviceType);
+    setWaitDays(null);
+    trackEstimateSearch('quick_pick', Boolean(ward));
+  }, [ward]);
+
+  const handleShortcutSavedTicket = useCallback((saved: SubscribedTicket) => {
+    if (isSubscribedTicketEntry(saved)) {
+      handleShortcutResume({
+        id: saved.id,
+        label: saved.id,
+        savedAt: saved.subscribedAt,
+        ticket: saved.id,
+        serviceType: saved.serviceType ?? null,
+        ward: saved.ward ?? null,
+        waitDays: null,
+      });
+      return;
+    }
+
+    handleShortcutResume({
+      id: saved.id,
+      label: formatRecentLookupLabel({
+        ticket: null,
+        serviceType: saved.serviceType ?? null,
+        ward: saved.ward ?? null,
+        waitDays: null,
+      }),
+      savedAt: saved.subscribedAt,
+      ticket: null,
+      serviceType: saved.serviceType ?? null,
+      ward: saved.ward ?? null,
+      waitDays: null,
+    });
+  }, [handleShortcutResume]);
+
+  useEffect(() => {
+    if (rows.length === 0) return;
+    backfillRecentTicketServiceTypes((ticketId) => {
+      const normalized = normalizeTicketId(ticketId);
+      const row = ticketIndex.get(normalized) ?? ticketIndex.get(ticketId.trim());
+      return row?.SERVICECODEDESCRIPTION ?? null;
+    });
+  }, [rows.length, ticketIndex]);
+
+  useEffect(() => {
+    if (!lookupResult || !effectiveServiceType) return;
+
+    const lookupState = ticket
+      ? {
+          ticket: ticket.id,
+          serviceType: ticket.serviceType || effectiveServiceType,
+          ward: effectiveWard ?? ticket.ward,
+          waitDays: null as number | null,
+        }
+      : {
+          ticket: null as string | null,
+          serviceType: effectiveServiceType,
+          ward: effectiveWard,
+          waitDays: waitDays,
+        };
+
+    addRecentLookup({
+      ...lookupState,
+      label: formatRecentLookupLabel(lookupState),
+    });
+  }, [
+    lookupResult,
+    effectiveServiceType,
+    ticket,
+    effectiveWard,
+    waitDays,
+  ]);
+
+  useEffect(() => {
+    if (!lookupResult) return;
+    try {
+      if (sessionStorage.getItem(ESTIMATE_HANDOFF_SCROLL_KEY) !== '1') return;
+      sessionStorage.removeItem(ESTIMATE_HANDOFF_SCROLL_KEY);
+    } catch {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [lookupResult]);
+
   const handleWardChange = useCallback((next: string) => {
     estimateUrlHistoryMode.current = 'push';
     setWard((prev) => {
@@ -425,6 +570,7 @@ export default function EstimateTab() {
     effectiveServiceType
     && !ward
     && !ticket
+    && !getDefaultWard()
     && (waitDays == null || waitDays <= 0),
   );
 
@@ -432,13 +578,8 @@ export default function EstimateTab() {
   const showReplayCard = isTypeOnlyLookup && Boolean(effectiveServiceType && replayPrompt);
   const replayTitle = ward ? `More in ${ward}` : 'Other types';
 
-  if (isLoading || !manifest) {
-    return (
-      <div className="p-4 flex items-center space-x-2">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-        <span className="text-sm text-text-muted">Loading estimate data…</span>
-      </div>
-    );
+  if (!manifest) {
+    return <EstimateTabSkeleton />;
   }
 
   if (!manifest.estimates?.length) {
@@ -471,6 +612,12 @@ export default function EstimateTab() {
           onTicketCleared={handleTicketCleared}
           onClearAll={handleClearAll}
           onWardChange={handleWardChange}
+          recentLookups={recentLookups}
+          onShortcutResume={handleShortcutResume}
+          onShortcutQuickPick={handleShortcutQuickPick}
+          onShortcutSavedTicket={handleShortcutSavedTicket}
+          onRemoveRecent={removeRecentLookup}
+          onClearRecents={clearRecentLookups}
         />
       </div>
 
@@ -480,25 +627,33 @@ export default function EstimateTab() {
         </div>
       )}
 
-      {lookupResult && effectiveServiceType && (
-        <EstimateResultCard
-          lookup={lookupResult}
-          ward={effectiveWard}
-          ticket={ticket}
-          builtAt={builtAt}
-          serviceType={effectiveServiceType}
-          category={serviceCategory}
-          typeStats={typeStats}
-          datePreset={datePreset}
-          waitDays={waitDays}
-          onWaitDaysChange={handleWaitDaysChange}
-          rows={rows}
-          onTicketFound={handleTicketFound}
-          onTryAnother={handleTryAnother}
-        />
-      )}
-
-      {!lookupResult && effectiveServiceType && typeStats && (
+      {isLoading && effectiveServiceType ? (
+        <div className="mt-3 p-4">
+          <div className="bg-surface border border-border rounded-lg p-4 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded w-48 mb-3" />
+            <div className="h-4 bg-gray-200 rounded w-full mb-2" />
+            <div className="h-4 bg-gray-200 rounded w-3/4" />
+          </div>
+        </div>
+      ) : lookupResult && effectiveServiceType ? (
+        <div ref={resultSectionRef}>
+          <EstimateResultCard
+            lookup={lookupResult}
+            ward={effectiveWard}
+            ticket={ticket}
+            builtAt={builtAt}
+            serviceType={effectiveServiceType}
+            category={serviceCategory}
+            typeStats={typeStats}
+            datePreset={datePreset}
+            waitDays={waitDays}
+            onWaitDaysChange={handleWaitDaysChange}
+            rows={rows}
+            onTicketFound={handleTicketFound}
+            onTryAnother={handleTryAnother}
+          />
+        </div>
+      ) : !lookupResult && effectiveServiceType && typeStats ? (
         <EstimateEmptyResultCard
           serviceType={effectiveServiceType}
           typeStats={typeStats}
@@ -506,7 +661,7 @@ export default function EstimateTab() {
           showTryAnother={isTypeOnlyLookup}
           onTryAnother={handleTryAnother}
         />
-      )}
+      ) : null}
 
       {showReplayCard && (
         <EstimateReplayCard
@@ -516,6 +671,7 @@ export default function EstimateTab() {
           onSelectType={handleReplayTypeSelected}
         />
       )}
+
     </div>
   );
 }

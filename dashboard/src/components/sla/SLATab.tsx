@@ -27,6 +27,7 @@ import SectionCard from '../shared/SectionCard';
 import SlaFilterBar from '../shared/filters/SlaFilterBar';
 import StatusBadge, { slaMetBadge } from '../shared/StatusBadge';
 import { slaCategorySummaryChart, slaCategoryVolumeMarkerSize, slaFailuresChart, slaResolutionByTypeChart, slaStatusMapChart } from '../../lib/charts';
+import SLATabSkeleton from './SLATabSkeleton';
 import { computeCategoryMonthlySlaSummary, computeCategoryMonthlySlaFromRollups, slaScoreColor } from '../../lib/overviewAnalytics';
 import CategorySlaTimelines from './CategorySlaTimelines';
 
@@ -40,7 +41,7 @@ interface SlaColumn {
 }
 
 export default function SLATab() {
-  const { data: dashboardData } = useDashboard();
+  const { data: dashboardData, manifest } = useDashboard();
   const processed = dashboardData?.rows;
   const isMobile = useIsMobile();
   const isBentoWide = useIsDesktop();
@@ -55,10 +56,12 @@ export default function SLATab() {
     setFilters((prev) => ({
       ...prev,
       categories: pending.categories ?? prev.categories,
+      serviceTypes: pending.serviceTypes ?? prev.serviceTypes,
       wards: pending.wards ?? prev.wards,
     }));
     trackSlaHandoffApplied({
       has_category: Boolean(pending.categories?.length),
+      has_service_type: Boolean(pending.serviceTypes?.length),
       has_ward: Boolean(pending.wards?.length),
     });
   }, []);
@@ -183,11 +186,19 @@ export default function SLATab() {
 
   if (!processed || processed.length === 0) {
     return (
-      <div className="p-4">
-        <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
-          <h3 className="font-semibold text-yellow-800 mb-2">No data available</h3>
-          <p className="text-yellow-600 text-sm">No records in the selected date range.</p>
-        </div>
+      <div>
+        <p className="prose-paragraph mb-1">
+          How often does DC meet its promised 311 deadlines? Compliance, resolution time, and failures by category and service type.
+        </p>
+        <p className="font-mono text-caption text-text-muted mb-2">
+          % Met SLA = (total − resolved late − open & overdue) ÷ total
+        </p>
+        {manifest ? (
+          <SlaFilterBar rows={[]} filters={filters} onChange={handleFilterChange} />
+        ) : (
+          <div className="h-12 bg-gray-200 rounded w-full animate-pulse mb-4" />
+        )}
+        <SLATabSkeleton />
       </div>
     );
   }
@@ -262,11 +273,11 @@ export default function SLATab() {
       <SlaFilterBar rows={processed} filters={filters} onChange={handleFilterChange} />
 
       <SectionCard
-        title="Overview"
+        title="Summary"
         subtitle={`${overallPct}% met SLA · ${totalReqs.toLocaleString()} requests`}
         defaultOpen
         analyticsTab="sla"
-        sectionId="overview"
+        sectionId="summary"
       >
         <div className="grid lg:grid-cols-12 gap-3 items-start mb-3">
           <div className="lg:col-span-9 min-w-0">

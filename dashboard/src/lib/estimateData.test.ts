@@ -337,20 +337,28 @@ describe('resolveTabFromSearchParams', () => {
     expect(resolveTabFromSearchParams(new URLSearchParams('type=Pothole&ward=Ward+4'))).toBe('estimate');
   });
 
-  it('defaults to overview when no tab or estimate params', () => {
-    expect(resolveTabFromSearchParams(new URLSearchParams(''))).toBe('overview');
+  it('defaults to home when no tab or estimate params', () => {
+    expect(resolveTabFromSearchParams(new URLSearchParams(''))).toBe('home');
   });
 
-  it('honors explicit tab=overview even when estimate params are present', () => {
-    expect(resolveTabFromSearchParams(new URLSearchParams('tab=overview&type=Pothole'))).toBe('overview');
+  it('honors explicit tab=methodologies even when estimate params are present', () => {
+    expect(resolveTabFromSearchParams(new URLSearchParams('tab=methodologies&type=Pothole'))).toBe('methodologies');
+  });
+
+  it('maps legacy tab=overview to methodologies', () => {
+    expect(resolveTabFromSearchParams(new URLSearchParams('tab=overview&type=Pothole'))).toBe('methodologies');
+  });
+
+  it('maps legacy tab=analysis to methodologies', () => {
+    expect(resolveTabFromSearchParams(new URLSearchParams('tab=analysis'))).toBe('methodologies');
   });
 
   it('defaults to estimate for invalid tab with estimate params', () => {
     expect(resolveTabFromSearchParams(new URLSearchParams('tab=invalid&type=Pothole'))).toBe('estimate');
   });
 
-  it('defaults to overview for invalid tab without estimate params', () => {
-    expect(resolveTabFromSearchParams(new URLSearchParams('tab=invalid'))).toBe('overview');
+  it('defaults to home for invalid tab without estimate params', () => {
+    expect(resolveTabFromSearchParams(new URLSearchParams('tab=invalid'))).toBe('home');
   });
 });
 

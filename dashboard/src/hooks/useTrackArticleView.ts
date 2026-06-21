@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { trackEvent } from '../lib/analytics';
 
-/** Fires overview_article_view once when the section is half visible. */
+/** Fires methodologies_article_view once when the section is half visible. */
 export function useTrackArticleView(articleId: string) {
   const ref = useRef<HTMLElement>(null);
   const tracked = useRef(false);
@@ -18,7 +18,7 @@ export function useTrackArticleView(articleId: string) {
           return;
         }
         tracked.current = true;
-        trackEvent('overview_article_view', { article: articleId });
+        trackEvent('methodologies_article_view', { article: articleId });
         observer.disconnect();
       },
       { threshold: 0.5 },

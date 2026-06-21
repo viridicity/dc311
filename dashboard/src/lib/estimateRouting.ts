@@ -10,9 +10,13 @@ export function stripEstimateSearchParams(params: URLSearchParams): void {
 
 export function resolveTabFromSearchParams(params: URLSearchParams): TabId {
   const tab = params.get('tab');
+  // Legacy inbound links: tab=overview and tab=analysis resolve to methodologies.
+  if (tab === 'overview' || tab === 'analysis') {
+    return 'methodologies';
+  }
   if (TAB_IDS.includes(tab as TabId)) {
     return tab as TabId;
   }
   const hasEstimateState = ESTIMATE_URL_KEYS.some((key) => params.has(key));
-  return hasEstimateState ? 'estimate' : 'overview';
+  return hasEstimateState ? 'estimate' : 'home';
 }

@@ -4,9 +4,10 @@ import { MonthlySlaSummary, slaMonthBarColor } from '../../lib/overviewAnalytics
 
 interface MonthlySlaTimelineProps {
   months: MonthlySlaSummary[];
+  onMethodologiesClick?: () => void;
 }
 
-export default function MonthlySlaTimeline({ months }: MonthlySlaTimelineProps) {
+export default function MonthlySlaTimeline({ months, onMethodologiesClick }: MonthlySlaTimelineProps) {
   const [keepDetails, setKeepDetails] = useState(false);
   const [hoverMonth, setHoverMonth] = useState<string | null>(null);
   const [lastHoverMonth, setLastHoverMonth] = useState<string | null>(null);
@@ -116,6 +117,15 @@ export default function MonthlySlaTimeline({ months }: MonthlySlaTimelineProps) 
           <span className="w-2 h-2 rounded-full border border-gray-400 bg-white shrink-0" />
           immature cohort
         </span>
+        {onMethodologiesClick && (
+          <button
+            type="button"
+            onClick={onMethodologiesClick}
+            className="text-caption text-text-muted font-mono underline underline-offset-[3px] decoration-gray-400 hover:decoration-gray-900 bg-transparent border-0 p-0 cursor-pointer inline ml-auto"
+          >
+            Methodologies
+          </button>
+        )}
       </p>
     </div>
   );
