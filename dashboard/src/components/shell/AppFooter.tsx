@@ -21,9 +21,10 @@ function GitHubIcon() {
 
 interface AppFooterProps {
   onAboutClick: () => void;
+  onMethodologiesClick?: () => void;
 }
 
-export default function AppFooter({ onAboutClick }: AppFooterProps) {
+export default function AppFooter({ onAboutClick, onMethodologiesClick }: AppFooterProps) {
   const repoHref = GITHUB_REPO_URL || '#';
 
   return (
@@ -69,6 +70,15 @@ export default function AppFooter({ onAboutClick }: AppFooterProps) {
           >
             Notes
           </button>
+          {onMethodologiesClick && (
+            <button
+              type="button"
+              onClick={onMethodologiesClick}
+              className="text-caption text-neutral-400 hover:text-neutral-100 underline-offset-2 hover:underline px-1"
+            >
+              Methodologies
+            </button>
+          )}
         </div>
       </div>
     </footer>

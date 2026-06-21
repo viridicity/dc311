@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchRollupTimeline } from '../../api/data';
 import { useDashboard } from '../../context/DashboardContext';
 import { useTrackArticleView } from '../../hooks/useTrackArticleView';
+import { useTimelineRollups } from '../../hooks/useTimelineRollups';
 import { useIsDesktop, useIsMobile } from '../../hooks/useBreakpoint';
 import {
   capChartHeight,
@@ -12,13 +11,11 @@ import {
 } from '../../lib/responsiveChartLayout';
 import { plotlyAxisTickFont, plotlyAxisTitleFont } from '../../lib/theme';
 import { slaCategorySummary } from '../../lib/dataProcessing';
-import { trackOverviewTabBridge } from '../../lib/analytics';
+import { trackMethodologiesTabBridge } from '../../lib/analytics';
 import {
   buildCategoryArticle,
   computeCategoryMonthlySlaFromRollups,
   computeCherryPickSensitivity,
-  computeMonthlySlaSummary,
-  computeMonthlyThroughput,
   computeOverviewHeadline,
   computeWardEquitySummary,
   findInvestigativeDeepDive,
@@ -30,7 +27,6 @@ import {
 import { mergeSlaRollups } from '../../lib/rollups';
 import {
   complianceVsResolvedChart,
-  monthlyThroughputChart,
   slaCategorySummaryChart,
   slaCategoryVolumeMarkerSize,
   sloPitfallScatter,
@@ -40,9 +36,8 @@ import ChartPanel from '../shared/ChartPanel';
 import DeferredChart from '../shared/DeferredChart';
 import ArticleFigure from './ArticleFigure';
 import CategoryArticleSection from './CategoryArticleSection';
-import SlaComplianceSummary from './SlaComplianceSummary';
 
-export default function OverviewTab() {
+export default function MethodologiesTab() {
   const {
     data: dashboardData,
     setDatePreset,
@@ -51,39 +46,15 @@ export default function OverviewTab() {
   } = useDashboard();
   const isBentoWide = useIsDesktop();
   const isMobile = useIsMobile();
-  const throughputSectionRef = useTrackArticleView('throughput');
   const readingMetricsSectionRef = useTrackArticleView('reading_metrics');
 
-  // Overview always uses the full-year timeline regardless of the active preset.
-  // Use already-loaded rollups when all shards are present; otherwise fetch the full set.
-  const allShardCount = dashboardData?.manifest.shards.length ?? 0;
-  const hasFullTimeline = (dashboardData?.monthlyRollups.length ?? 0) >= allShardCount;
-
-  const { data: fetchedTimeline, isLoading: timelineLoading } = useQuery({
-    queryKey: ['rollupTimeline'],
-    queryFn: fetchRollupTimeline,
-    enabled: !hasFullTimeline,
-    staleTime: 24 * 60 * 60 * 1000,
-  });
-
-  const timelineRollups = hasFullTimeline
-    ? dashboardData?.monthlyRollups
-    : fetchedTimeline;
+  // Methodologies always uses the full-year timeline regardless of the active preset.
+  const { timelineRollups, isLoading: timelineLoading } = useTimelineRollups();
 
   const dicts = dashboardData?.manifest.dictionaries;
 
-  const monthly = useMemo(
-    () => (timelineRollups ? computeMonthlySlaSummary(timelineRollups) : []),
-    [timelineRollups],
-  );
-
   const headline = useMemo(
     () => (timelineRollups ? computeOverviewHeadline(timelineRollups) : null),
-    [timelineRollups],
-  );
-
-  const throughput = useMemo(
-    () => (timelineRollups ? computeMonthlyThroughput(timelineRollups) : []),
     [timelineRollups],
   );
 
@@ -110,11 +81,6 @@ export default function OverviewTab() {
     [categoryMonthly, perceptibilityChartCategories],
   );
 
-  const categoriesBelow95Count = useMemo(
-    () => catSummary.filter((c) => c.pct_met_sla < 95).length,
-    [catSummary],
-  );
-
   const wardEquity = useMemo(
     () => (timelineRollups && dicts ? computeWardEquitySummary(timelineRollups, dicts) : null),
     [timelineRollups, dicts],
@@ -131,8 +97,6 @@ export default function OverviewTab() {
     () => (timelineRollups && dicts ? findInvestigativeDeepDive(timelineRollups, dicts) : null),
     [timelineRollups, dicts],
   );
-
-  const throughputChart = useMemo(() => monthlyThroughputChart(throughput), [throughput]);
 
   const catChartHeight = useMemo(
     () => capChartHeight(
@@ -204,7 +168,7 @@ export default function OverviewTab() {
   );
 
   const handleTabNavigate = (tab: 'sla' | 'explorer') => {
-    trackOverviewTabBridge(tab);
+    trackMethodologiesTabBridge(tab);
     setDatePreset('full');
     setActiveTab(tab);
   };
@@ -213,12 +177,10 @@ export default function OverviewTab() {
     return (
       <div className="p-4 flex items-center space-x-2">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-        <span className="text-sm text-text-muted">Loading overview…</span>
+        <span className="text-sm text-text-muted">Loading methodologies…</span>
       </div>
     );
   }
-
-  const throughputHeight = capChartHeight(360, !isBentoWide);
 
   const slaCategoryChartLayout: Record<string, unknown> = {
     height: catChartHeight,
@@ -257,50 +219,9 @@ export default function OverviewTab() {
       : {}),
   };
 
-  const throughputLayout: Record<string, unknown> = {
-    height: throughputHeight,
-    margin: { t: 56, b: 80, l: 56, r: 24 },
-    title: chartTitle('Requests filed and resolved by month'),
-    barmode: 'overlay',
-    xaxis: { title: '', tickangle: -45 },
-    yaxis: { title: 'Requests', tickformat: ',' },
-    legend: legendBelow(true),
-  };
-
   return (
     <div className="w-full">
-      <SlaComplianceSummary
-        pctMetSla={headline.pctMetSla}
-        failures={headline.failures}
-        errorBudgetAt99={headline.errorBudgetAt99}
-        months={monthly}
-        categoriesBelow95Count={categoriesBelow95Count}
-        totalCategoryCount={catSummary.length}
-      />
-
-      <section ref={throughputSectionRef} className="article-section article-prose">
-        <h2 className="article-headline">The weight of half a million requests</h2>
-        <p className="article-dek">
-          {headline.total.toLocaleString()} requests filed in twelve months. {headline.open.toLocaleString()} still open.
-        </p>
-
-        <DeferredChart minHeight={300}>
-          <ArticleFigure
-            caption="Requests filed (bars) and resolved (line) per month. The gap between them is the backlog accumulating or clearing."
-            data={throughputChart.traces}
-            layout={throughputLayout}
-          />
-        </DeferredChart>
-
-        <p>
-          DC residents filed {headline.total.toLocaleString()} 311 requests over the past year: broken sidewalks,
-          missed collections, bus stops, bike infrastructure, and more. {headline.open.toLocaleString()} of them
-          remain unresolved. The city closed {headline.pctResolved}% within the window. The rest are still waiting.
-        </p>
-        <p>
-          At this volume, failures are inevitable. Where they concentrate and who bears them is the more useful question.
-        </p>
-      </section>
+      <h1 className="sr-only">Methodologies</h1>
 
       <DeferredChart minHeight={catChartHeight}>
         <div className="article-section !py-0">

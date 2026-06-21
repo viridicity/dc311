@@ -1,6 +1,6 @@
 import { SlaFilterState } from './filterTypes';
 
-export type PendingSlaFilters = Pick<SlaFilterState, 'categories' | 'wards'>;
+export type PendingSlaFilters = Partial<Pick<SlaFilterState, 'categories' | 'serviceTypes' | 'wards'>>;
 
 let pendingSlaFilters: PendingSlaFilters | null = null;
 

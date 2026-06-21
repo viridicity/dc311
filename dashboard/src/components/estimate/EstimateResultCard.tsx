@@ -20,11 +20,12 @@ import {
   ServiceTypeStats,
   TicketInfo,
 } from '../../lib/estimateData';
-import { trackEstimateCopyLink, trackEstimateDetailExpand, trackEstimateOutboundClick, trackEstimateSaveImage, trackEstimateShare, trackEstimateSlaBridge } from '../../lib/analytics';
+import { trackEstimateDetailExpand, trackEstimateOutboundClick, trackEstimateSaveImage, trackEstimateShare, trackEstimateSlaBridge } from '../../lib/analytics';
 import { useDashboard } from '../../context/DashboardContext';
 import { setPendingSlaFilters } from '../../lib/slaHandoff';
 import { DateRangePreset } from '../../api/dataTypes';
 import { ProcessedRequest } from '../../lib/dataProcessing';
+import { formatEstimateResultSubtitle } from '../../lib/homePreferences';
 import EstimateAlreadyWaiting from './EstimateAlreadyWaiting';
 import PersonalVerdictBanner from './PersonalVerdictBanner';
 import StickyVerdictBar from './StickyVerdictBar';
@@ -68,7 +69,6 @@ export default function EstimateResultCard({
 }: EstimateResultCardProps) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
   const [imageSaveFailed, setImageSaveFailed] = useState(false);
   const [showSharePreview, setShowSharePreview] = useState(false);
@@ -235,17 +235,6 @@ export default function EstimateResultCard({
     }
   }, [shareImagePath, serviceType, ward]);
 
-  const handleCopySaveLink = useCallback(async () => {
-    try {
-      await window.navigator.clipboard.writeText(shareUrl);
-      setLinkCopied(true);
-      trackEstimateCopyLink();
-      window.setTimeout(() => setLinkCopied(false), 2500);
-    } catch {
-      setLinkCopied(false);
-    }
-  }, [shareUrl]);
-
   const handleSlaBridge = useCallback(() => {
     if (!ward || !category) return;
     setPendingSlaFilters({ wards: [ward], categories: [category] });
@@ -253,33 +242,21 @@ export default function EstimateResultCard({
     setActiveTab('sla');
   }, [ward, category, setActiveTab]);
 
-  const handleOverviewLink = useCallback(() => {
-    trackEstimateOutboundClick('overview');
-    setActiveTab('overview');
-  }, [setActiveTab]);
-
-  const showSaveLinkNudge = Boolean(
-    personal && ticket && (personal.tone === 'success' || personal.tone === 'warning'),
-  );
-
-  const saveLinkNudge = showSaveLinkNudge ? (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">
-      <span>Save this link to check back — it remembers your ticket.</span>
-      <button
-        type="button"
-        onClick={handleCopySaveLink}
-        className="text-blue-700 hover:text-blue-900 underline font-medium min-h-[44px]"
-      >
-        {linkCopied ? 'Link copied' : 'Copy link'}
-      </button>
-    </div>
-  ) : null;
-
   return (
     <section className="bg-surface border border-border rounded-lg mb-2">
       <div className="px-4 py-2.5">
-        <h3 className="text-body font-semibold text-gray-900 mb-0">Your estimate</h3>
-        <p className="text-caption text-text-muted mb-0 mt-0.5">{serviceType}</p>
+        <div className="min-w-0">
+          <h3 className="text-body font-semibold text-gray-900 mb-0">Your estimate</h3>
+          <p className="text-caption text-text-muted mb-0 mt-0.5">
+            {formatEstimateResultSubtitle({
+              ticketId: ticket?.id ?? null,
+              serviceType,
+              ward: ward || ticket?.ward || null,
+              markerDays: ticket?.markerDays ?? null,
+              isOpen: ticket?.isOpen ?? null,
+            })}
+          </p>
+        </div>
       </div>
       <div className="px-4 pb-3 border-t border-border pt-2.5">
         {personal && !verdictVisible && (
@@ -337,7 +314,6 @@ export default function EstimateResultCard({
               tone={personal.tone}
               resolutionLine={resolutionLine}
               onShare={handleShare}
-              saveLinkNudge={saveLinkNudge}
             >
               {showDangerCta && (
                 <>
@@ -373,24 +349,15 @@ export default function EstimateResultCard({
                 </a>
               )}
               {ticket?.isClosed && (
-                <>
-                  <a
-                    href={DC311_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => trackEstimateOutboundClick('dc311')}
-                    className="inline-flex items-center justify-center min-h-[44px] px-4 py-2 text-sm font-medium rounded-md border border-border bg-surface hover:bg-surface-muted transition-colors text-blue-700"
-                  >
-                    Need to report this again? File at 311.dc.gov
-                  </a>
-                  <button
-                    type="button"
-                    onClick={handleOverviewLink}
-                    className="text-sm text-blue-700 hover:text-blue-900 underline text-center sm:text-right min-h-[44px]"
-                  >
-                    See how this type performs citywide →
-                  </button>
-                </>
+                <a
+                  href={DC311_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackEstimateOutboundClick('dc311')}
+                  className="inline-flex items-center justify-center min-h-[44px] px-4 py-2 text-sm font-medium rounded-md border border-border bg-surface hover:bg-surface-muted transition-colors text-blue-700"
+                >
+                  Need to report this again? File at 311.dc.gov
+                </a>
               )}
             </PersonalVerdictBanner>
           </div>

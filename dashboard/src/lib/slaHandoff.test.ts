@@ -10,4 +10,9 @@ describe('slaHandoff', () => {
     });
     expect(consumePendingSlaFilters()).toBeNull();
   });
+
+  it('stores service type filters for estimate handoff', () => {
+    setPendingSlaFilters({ serviceTypes: ['Pothole'] });
+    expect(consumePendingSlaFilters()).toEqual({ serviceTypes: ['Pothole'] });
+  });
 });

@@ -19,10 +19,13 @@ export const LINKEDIN_URL = import.meta.env.VITE_LINKEDIN_URL ?? 'https://www.li
 export const AUTHOR_BIO =
   'Reliability engineer applying cloud infrastructure thinking to civic systems.';
 
+/** Hidden routable tab for the long-form methodologies article (not shown in TabNav). */
+export const METHODOLOGIES_TAB_ID = 'methodologies' satisfies TabId;
+
 export const TAB_CONFIG: { id: TabId; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
+  { id: 'home', label: 'Home' },
   { id: 'estimate', label: 'Estimate' },
-  { id: 'sla', label: 'Performance' },
+  { id: 'sla', label: 'Reliability' },
   { id: 'explorer', label: 'Explore' },
   { id: 'raw', label: 'Records' },
 ];

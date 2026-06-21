@@ -59,7 +59,7 @@ export default function WardComparisonCallout({
           onClick={onViewSlaPerformance}
           className="mt-2 mb-0 text-sm text-blue-700 hover:text-blue-900 underline"
         >
-          See all {category} performance in {comparison.ward} →
+          See all {category} reliability in {comparison.ward} →
         </button>
       )}
     </div>

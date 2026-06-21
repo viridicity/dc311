@@ -54,9 +54,10 @@ interface AboutPanelProps {
   open: boolean;
   builtAt: string | null;
   onClose: () => void;
+  onMethodologiesClick?: () => void;
 }
 
-export default function AboutPanel({ open, builtAt, onClose }: AboutPanelProps) {
+export default function AboutPanel({ open, builtAt, onClose, onMethodologiesClick }: AboutPanelProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -85,7 +86,6 @@ export default function AboutPanel({ open, builtAt, onClose }: AboutPanelProps) 
         aria-labelledby="about-title"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0 border-b border-gray-100">
           <h2 id="about-title" className="text-base font-semibold text-gray-900 tracking-tight">
             Notes
@@ -101,10 +101,7 @@ export default function AboutPanel({ open, builtAt, onClose }: AboutPanelProps) 
           </button>
         </div>
 
-        {/* Scrollable body */}
         <div className="overflow-y-auto px-6 py-5 space-y-6 text-sm text-gray-600 leading-relaxed">
-
-          {/* About */}
           <div>
             <SectionLabel>About</SectionLabel>
             <p>
@@ -112,11 +109,21 @@ export default function AboutPanel({ open, builtAt, onClose }: AboutPanelProps) 
               assigns when a ticket is filed. This project measures how often the city meets those
               deadlines across ~465,000 requests, broken down by category, service type, and ward.
             </p>
+            {onMethodologiesClick && (
+              <p className="mt-2 mb-0">
+                <button
+                  type="button"
+                  onClick={onMethodologiesClick}
+                  className="text-blue-700 hover:text-blue-900 underline font-medium"
+                >
+                  Read our methodologies →
+                </button>
+              </p>
+            )}
           </div>
 
           <hr className="border-gray-100" />
 
-          {/* Data source */}
           <div>
             <SectionLabel>Data source</SectionLabel>
             <p className="mb-2">
@@ -132,13 +139,12 @@ export default function AboutPanel({ open, builtAt, onClose }: AboutPanelProps) 
               </PillLink>
             </div>
             <p className="mt-2 text-gray-400 text-xs">
-              Data has been filtered, categorized, and aggregated for this analysis.
+              Data has been filtered, categorized, and aggregated for this project.
             </p>
           </div>
 
           <hr className="border-gray-100" />
 
-          {/* How it works */}
           <div>
             <SectionLabel>How it works</SectionLabel>
             <p className="mb-3">
@@ -156,7 +162,6 @@ export default function AboutPanel({ open, builtAt, onClose }: AboutPanelProps) 
 
           <hr className="border-gray-100" />
 
-          {/* Built by */}
           <div>
             <SectionLabel>Built by</SectionLabel>
             <div className="flex items-center gap-4 p-4 rounded-lg bg-gray-50 mb-3">
@@ -187,7 +192,6 @@ export default function AboutPanel({ open, builtAt, onClose }: AboutPanelProps) 
               )}
             </div>
           </div>
-
         </div>
       </div>
     </div>

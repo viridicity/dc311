@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   buildTicketIndex,
-  formatTicketContext,
   looksLikeTicketId,
   normalizeTicketId,
   searchServiceTypes,
@@ -10,10 +9,25 @@ import {
   TicketInfo,
 } from '../../lib/estimateData';
 import { ProcessedRequest } from '../../lib/dataProcessing';
-import { trackEstimateClear, trackEstimateLookup, trackEstimateSearch, type EstimateSearchSource } from '../../lib/analytics';
+import { trackEstimateClear, trackEstimateLookup, trackEstimateSearch, trackTicketRemove, trackTicketSave, type EstimateSearchSource } from '../../lib/analytics';
 import { WARD_ORDER } from '../../lib/constants';
+import { useDefaultWard, useSubscribedTickets } from '../../hooks/useLocalPrefs';
+import {
+  RecentLookup,
+  SubscribedTicket,
+  filterRecentLookupsExcludingSaved,
+  getSavedLookupId,
+  isSubscribedToTicket,
+  subscribeToLookup,
+  subscribeToTicket,
+  unsubscribeFromTicket,
+} from '../../lib/homePreferences';
 import SingleSelect from '../shared/filters/SingleSelect';
+import SaveSearchButton from '../shared/SaveSearchButton';
+import LookupShortcutRow from '../shared/LookupShortcutRow';
 import WardGuideCallout from './WardGuideCallout';
+import { quickPickDisplayLabel } from '../../lib/quickPickLabels';
+import { QUICK_PICK_CHIP_CLASS } from '../shared/surfaceStyles';
 
 interface EstimateInputProps {
   serviceTypes: string[];
@@ -34,6 +48,12 @@ interface EstimateInputProps {
   onTicketCleared: () => void;
   onClearAll: () => void;
   onWardChange: (ward: string) => void;
+  recentLookups?: RecentLookup[];
+  onShortcutResume?: (lookup: RecentLookup) => void;
+  onShortcutQuickPick?: (serviceType: string) => void;
+  onShortcutSavedTicket?: (ticket: SubscribedTicket) => void;
+  onRemoveRecent?: (id: string) => void;
+  onClearRecents?: () => void;
 }
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
@@ -76,6 +96,12 @@ export default function EstimateInput({
   onTicketCleared,
   onClearAll,
   onWardChange,
+  recentLookups = [],
+  onShortcutResume,
+  onShortcutQuickPick,
+  onShortcutSavedTicket,
+  onRemoveRecent,
+  onClearRecents,
 }: EstimateInputProps) {
   const listId = useId();
   const [query, setQuery] = useState('');
@@ -88,6 +114,57 @@ export default function EstimateInput({
   const listRef = useRef<HTMLUListElement>(null);
   const wardAnchorRef = useRef<HTMLDivElement>(null);
   const [wardGuideActive, setWardGuideActive] = useState(false);
+  const [savedWard] = useDefaultWard();
+  const subscribedTickets = useSubscribedTickets();
+
+  const isTicketSubscribed = Boolean(
+    ticket && isSubscribedToTicket(ticket.id),
+  );
+
+  const isLookupSubscribed = Boolean(
+    selectedServiceType
+    && !ticket
+    && subscribedTickets.some(
+      (entry) => entry.id === getSavedLookupId(selectedServiceType, selectedWard || null),
+    ),
+  );
+
+  const isSearchSaved = ticket ? isTicketSubscribed : isLookupSubscribed;
+  const canSaveSearch = Boolean(ticket || selectedServiceType);
+
+  const handleSaveSearch = useCallback(() => {
+    if (ticket) {
+      subscribeToTicket({
+        id: ticket.id,
+        serviceType: ticket.serviceType,
+        ward: ticket.ward,
+      });
+      trackTicketSave('estimate');
+      return;
+    }
+    if (!selectedServiceType) return;
+    subscribeToLookup({
+      serviceType: selectedServiceType,
+      ward: selectedWard || null,
+    });
+    trackTicketSave('estimate');
+  }, [selectedServiceType, selectedWard, ticket]);
+
+  const handleRemoveSearch = useCallback(() => {
+    if (ticket) {
+      unsubscribeFromTicket(ticket.id);
+      trackTicketRemove('estimate');
+      return;
+    }
+    if (!selectedServiceType) return;
+    unsubscribeFromTicket(getSavedLookupId(selectedServiceType, selectedWard || null));
+    trackTicketRemove('estimate');
+  }, [selectedServiceType, selectedWard, ticket]);
+
+  const handleRemoveSaved = useCallback((ticketId: string) => {
+    unsubscribeFromTicket(ticketId);
+    trackTicketRemove('estimate');
+  }, []);
 
   useEffect(() => {
     if (showWardGuide) {
@@ -265,6 +342,16 @@ export default function EstimateInput({
     && !ticket
     && !query.trim();
 
+  const visibleRecents = filterRecentLookupsExcludingSaved(recentLookups, subscribedTickets);
+  const shortcutQuickPicks = showWardStandouts ? [] : quickPicks;
+  const showLookupShortcuts = !selectedServiceType
+    && !ticket
+    && (
+      subscribedTickets.length > 0
+      || visibleRecents.length > 0
+      || shortcutQuickPicks.length > 0
+    );
+
   return (
     <div className="bg-surface border border-border rounded-lg mb-2">
       <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
@@ -280,7 +367,7 @@ export default function EstimateInput({
         )}
       </div>
       <div className="font-mono px-4 py-3">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
           <div ref={containerRef} className="relative">
             <label htmlFor="estimate-query" className="sr-only">
               Ticket # or service type
@@ -403,7 +490,7 @@ export default function EstimateInput({
           </div>
           <div
             ref={wardAnchorRef}
-            className={`relative${wardGuideActive ? ' rounded-md ring-2 ring-blue-400 ring-offset-2 transition-shadow duration-300' : ''}`}
+            className={`relative flex items-end gap-1.5${wardGuideActive ? ' rounded-md ring-2 ring-blue-400 ring-offset-2 transition-shadow duration-300' : ''}`}
           >
             <WardGuideCallout
               key={selectedServiceType ?? 'none'}
@@ -411,16 +498,45 @@ export default function EstimateInput({
               anchorRef={wardAnchorRef}
               onDismiss={() => setWardGuideActive(false)}
             />
-            <SingleSelect
-              label=""
-              ariaLabel="Ward"
-              value={selectedWard}
-              options={wardOptions}
-              onChange={onWardChange}
-              describedBy={wardGuideActive ? 'estimate-ward-guide' : undefined}
-            />
+            <div className="min-w-0 w-full md:w-[200px]">
+              <SingleSelect
+                label=""
+                ariaLabel="Ward"
+                value={selectedWard}
+                options={wardOptions}
+                onChange={onWardChange}
+                describedBy={wardGuideActive ? 'estimate-ward-guide' : undefined}
+              />
+            </div>
+            {canSaveSearch && (
+              <SaveSearchButton
+                ticketId={ticket?.id ?? null}
+                serviceType={ticket ? null : selectedServiceType}
+                ward={ticket ? ticket.ward : (selectedWard || null)}
+                isSaved={isSearchSaved}
+                onSave={handleSaveSearch}
+                onRemove={handleRemoveSearch}
+              />
+            )}
           </div>
         </div>
+        {showLookupShortcuts && (
+          <div className="mt-3">
+            <LookupShortcutRow
+              savedTickets={subscribedTickets}
+              recentLookups={recentLookups}
+              quickPicks={shortcutQuickPicks}
+              defaultWard={savedWard}
+              onResumeLookup={onShortcutResume}
+              onQuickPick={onShortcutQuickPick}
+              onOpenSavedTicket={onShortcutSavedTicket}
+              onRemoveRecent={onRemoveRecent}
+              onRemoveSaved={handleRemoveSaved}
+              onClearRecents={onClearRecents}
+              showClearRecents
+            />
+          </div>
+        )}
         {showWardStandouts && (
           <div className="mt-3">
             <p className="text-caption font-semibold text-text-muted mb-1.5">
@@ -432,34 +548,12 @@ export default function EstimateInput({
                   key={type}
                   type="button"
                   onClick={() => handleSelectType(type, 'ward_standout')}
-                  className="text-caption px-2.5 py-1 min-h-[32px] rounded-full border border-border bg-surface-muted hover:bg-blue-50 hover:border-blue-200 hover:text-blue-900 text-gray-800 transition-colors"
+                  className={QUICK_PICK_CHIP_CLASS}
                 >
-                  {type}
+                  {quickPickDisplayLabel(type)}
                 </button>
               ))}
             </div>
-          </div>
-        )}
-        {quickPicks.length > 0 && !selectedServiceType && !ticket && !showWardStandouts && (
-          <div className="mt-3">
-            <p className="text-caption font-semibold text-text-muted mb-1.5">Popular requests</p>
-            <div className="flex flex-wrap gap-2">
-              {quickPicks.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => handleSelectType(type, 'quick_pick')}
-                  className="text-caption px-2.5 py-1 min-h-[32px] rounded-full border border-border bg-surface-muted hover:bg-blue-50 hover:border-blue-200 hover:text-blue-900 text-gray-800 transition-colors"
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {ticket && (
-          <div className="sla-month-detail-compact mt-3">
-            <p className="sla-month-detail-compact-text mb-0">{formatTicketContext(ticket)}</p>
           </div>
         )}
       </div>

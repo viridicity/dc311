@@ -79,7 +79,7 @@ export async function fetchDashboardData(
   };
 }
 
-/** Loads all monthly rollup shards for the overview timeline (no row hydration). */
+/** Loads all monthly rollup shards for the full-year timeline (no row hydration). */
 export async function fetchRollupTimeline(): Promise<RollupFile[]> {
   const manifest = await fetchManifest();
   const sorted = [...manifest.shards].sort((a, b) => a.id.localeCompare(b.id));

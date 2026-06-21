@@ -25,6 +25,7 @@ import StatRow from '../shared/StatRow';
 import ExplorerFilterBar from '../shared/filters/ExplorerFilterBar';
 import SectionCard from '../shared/SectionCard';
 import { CATEGORICAL_COLORS } from '../../lib/theme';
+import ExplorerTabSkeleton from './ExplorerTabSkeleton';
 import { hasExplorerFilters } from '../../lib/rollups';
 import {
   getCategoryOrder,
@@ -44,7 +45,7 @@ const CAT_PALETTE = [...CATEGORICAL_COLORS];
 const DOW_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function ExplorerTab() {
-  const { data: dashboardData } = useDashboard();
+  const { data: dashboardData, manifest } = useDashboard();
   const [filters, setFilters] = useState<ExplorerFilterState>(EMPTY_EXPLORER_FILTERS);
   const processed = dashboardData?.rows;
   const isMobile = useIsMobile();
@@ -170,7 +171,23 @@ export default function ExplorerTab() {
   })), [catOrder, dowData, catColorMap]);
 
   if (!processed || processed.length === 0) {
-    return <div className="p-4">No data available</div>;
+    return (
+      <div>
+        <p className="prose-paragraph mb-2">
+          Filter by category, ward, service type, or status. Every chart and map below updates with your selection.
+        </p>
+        {manifest ? (
+          <ExplorerFilterBar
+            rows={[]}
+            filters={filters}
+            onChange={handleFilterChange}
+          />
+        ) : (
+          <div className="h-12 bg-gray-200 rounded w-full animate-pulse" />
+        )}
+        <ExplorerTabSkeleton />
+      </div>
+    );
   }
 
   const { total, openCount, pctResolved, medianRes } = kpis;
@@ -188,11 +205,11 @@ export default function ExplorerTab() {
       />
 
       <SectionCard
-        title="Overview"
+        title="Summary"
         subtitle={`${total.toLocaleString()} matching requests`}
         defaultOpen
         analyticsTab="explorer"
-        sectionId="overview"
+        sectionId="summary"
       >
         <StatRow
           stats={[

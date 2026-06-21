@@ -60,7 +60,9 @@ export type EstimateVerdictTone = 'neutral' | 'success' | 'warning' | 'danger';
 
 export type EstimateWaitDaysBucket = 'none' | '1-7' | '8-30' | '31+';
 
-export type EstimateOutboundLink = 'dc311' | 'dc_council' | 'overview';
+export type EstimateOutboundLink = 'dc311' | 'dc_council';
+
+export type MethodologiesLinkSource = 'home' | 'about' | 'footer';
 
 export type EstimateClearScope = 'input' | 'all';
 
@@ -130,13 +132,21 @@ export function trackEstimateSlaBridge(from: 'ward_callout' | 'result_footer'): 
   trackEvent('estimate_sla_bridge', { from });
 }
 
-export type OverviewTabBridgeTarget = 'sla' | 'explorer';
+export type MethodologiesTabBridgeTarget = 'sla' | 'explorer';
 
-export function trackOverviewTabBridge(target: OverviewTabBridgeTarget): void {
-  trackEvent('overview_tab_bridge', { target });
+export function trackMethodologiesTabBridge(target: MethodologiesTabBridgeTarget): void {
+  trackEvent('methodologies_tab_bridge', { target });
 }
 
-export function trackSlaHandoffApplied(params: { has_category: boolean; has_ward: boolean }): void {
+export function trackMethodologiesLinkClick(source: MethodologiesLinkSource): void {
+  trackEvent('methodologies_link_click', { source });
+}
+
+export function trackSlaHandoffApplied(params: {
+  has_category: boolean;
+  has_service_type: boolean;
+  has_ward: boolean;
+}): void {
   trackEvent('sla_handoff_applied', params);
 }
 
@@ -149,7 +159,7 @@ export function trackSectionToggle(tab: SectionToggleTab, section: string, open:
 /** Sends a virtual pageview when filter tab state changes (no filter values in path). */
 export function trackFilterTabPageView(tab: AnalyticsFilterTab, hasActiveFilters: boolean): void {
   const paths: Record<AnalyticsFilterTab, { base: string; filtered: string; title: string }> = {
-    sla: { base: '/performance', filtered: '/performance/filtered', title: 'Performance' },
+    sla: { base: '/reliability', filtered: '/reliability/filtered', title: 'Reliability' },
     explorer: { base: '/explore', filtered: '/explore/filtered', title: 'Explore' },
     raw: { base: '/records', filtered: '/records/filtered', title: 'Records' },
   };
@@ -183,10 +193,6 @@ export function trackEstimateClear(scope: EstimateClearScope): void {
 
 export function trackEstimateSaveImage(): void {
   trackEvent('estimate_save_image');
-}
-
-export function trackEstimateCopyLink(): void {
-  trackEvent('estimate_copy_link');
 }
 
 export function trackEstimateWardGuideShown(): void {
@@ -225,4 +231,53 @@ export function trackFilterChange(
   }
 
   trackEvent('filter_apply', { tab, active_filters: nextSummary });
+}
+
+export type HomeLayoutMode = 'first' | 'return';
+
+export type HomeHandoffSource =
+  | 'home_ticket'
+  | 'home_cta'
+  | 'home_quick_pick'
+  | 'recent_lookup'
+  | 'subscribed_ticket';
+
+export function trackHomeTabView(layoutMode: HomeLayoutMode): void {
+  trackEvent('home_tab_view', { layout_mode: layoutMode });
+}
+
+export function trackHomeReturnClick(): void {
+  trackEvent('home_return_click');
+}
+
+export function trackHomeHandoffToEstimate(source: HomeHandoffSource): void {
+  trackEvent('home_handoff_to_estimate', { source });
+}
+
+export function trackProfileOpen(): void {
+  trackEvent('profile_open');
+}
+
+export function trackDefaultWardSet(source: 'select' | 'ticket' | 'profile' | 'result'): void {
+  trackEvent('default_ward_set', { source });
+}
+
+export function trackSavedLocationSet(): void {
+  trackEvent('saved_location_set');
+}
+
+export function trackDefaultWardCleared(): void {
+  trackEvent('local_prefs_cleared', { scope: 'default_ward' });
+}
+
+export function trackLocalPrefsCleared(): void {
+  trackEvent('local_prefs_cleared', { scope: 'all' });
+}
+
+export function trackTicketSave(source: 'estimate' | 'profile'): void {
+  trackEvent('ticket_save', { source });
+}
+
+export function trackTicketRemove(source: 'estimate' | 'profile' | 'home'): void {
+  trackEvent('ticket_remove', { source });
 }
